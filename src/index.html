@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Flight</title>
+      <style>
+        body{
+            margin: 0px;
+            font-family: monospace;
+        }
+        input, button {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          margin-right: 5px;
+        }
+        button {
+          left: 150px;
+        }
+        #GUI > *{
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          color: white;
+          font-size: 20px;
+        }
+        #speed{
+          top: 40px!important;
+        }
+        #GUI{
+          background-color: rgba(0, 0, 0, 0.247);
+          border-bottom-right-radius: 10px;
+          position: absolute;
+          padding: 10px;
+          width: 250px;
+          height: 90px;
+        }
+        span{
+          top: 70px!important;
+        }
+        #help{
+          font-size: 20px;
+          position: absolute;
+          top: 150px!important;
+          padding: 10px;
+          color: white;
+          background-color: rgba(0, 0, 0, 0.247);
+          border-bottom-right-radius: 10px;
+          border-top-right-radius: 10px;
+        }
+        .hidden{
+          display: none;
+        }
+      </style>
+</head>
+<body>
+  <div id="GUI">
+    <div id="throttle"></div>
+    <div id="speed"></div>
+    <span>H: Show controls</span>
+  </div>
+  <div id="help" class="hidden">
+    W: Throttle increase <br>
+    S: Throttle decrease <br>
+    E: Throttle max <br>
+    Q: Throttle min <br>
+    A: Yaw left <br>
+    D: Yaw right <br>
+    Up arrow: Pitch down <br>
+    Down arrow: Pitch up <br>
+    Left arrow: Roll left <br>
+    Right arrow: Roll right <br>
+    R: Reset
+  </div>
+</body>
+</html>
