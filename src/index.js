@@ -383,9 +383,9 @@ function updateMovement(deltaTime) {
         document.location.reload();
     }
     if (pressedKeys.has('o')) {
-        thrust = 1000;
-        dragCoefficient = 0.001;
-        liftCoefficient = 0.000001;
+        thrust = 100000000;
+        dragCoefficient = 0.0001;
+        liftCoefficient = 0.0001;
     }
 
     const liftMagnitude = Math.sin(angleOfAttack) * liftCoefficient * velocity.lengthSq();
@@ -451,12 +451,19 @@ function updateMovement(deltaTime) {
 
 let previousTime = performance.now();
 
+window.addEventListener('focus', () => {
+    previousTime = performance.now();
+});
+
 function animate() {
     requestAnimationFrame(animate);
 
     const currentTime = performance.now();
-    const deltaTime = (currentTime - previousTime) / 1000;
+    let deltaTime = (currentTime - previousTime) / 1000;
     previousTime = currentTime;
+
+    // Cap deltaTime to prevent large jumps
+    deltaTime = Math.min(deltaTime, 0.1);
 
     updateMovement(deltaTime);
 
