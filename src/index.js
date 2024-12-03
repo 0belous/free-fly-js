@@ -72,13 +72,20 @@ function resetPlane() {
 }
 
 const exrLoader = new EXRLoader();
-exrLoader.load('./resources/skybox.exr', (texture) => {
-    const exrCubeRenderTarget = new THREE.WebGLCubeRenderTarget(texture.image.height);
-    exrCubeRenderTarget.fromEquirectangularTexture(renderer, texture);
-    scene.background = exrCubeRenderTarget.texture;
-    resourcesLoaded.exr = true;
-    checkResourcesLoaded();
-});
+exrLoader.load(
+    './resources/skybox.exr',
+    (texture) => {
+        const exrCubeRenderTarget = new THREE.WebGLCubeRenderTarget(texture.image.height);
+        exrCubeRenderTarget.fromEquirectangularTexture(renderer, texture);
+        scene.background = exrCubeRenderTarget.texture;
+        resourcesLoaded.exr = true;
+        checkResourcesLoaded();
+    },
+    (xhr) => {
+        const progress = (xhr.loaded / xhr.total) * 100;
+        document.getElementById('loadingProgress').innerText = `Loading: ${progress.toFixed(2)}%`;
+    }
+);
 
 const textureLoader = new THREE.TextureLoader();
 const texture = textureLoader.load('./resources/forest_ground.jpg', () => {
