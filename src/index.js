@@ -56,7 +56,15 @@ let resourcesLoaded = {
 function checkResourcesLoaded() {
     if (resourcesLoaded.texture && resourcesLoaded.gltf && resourcesLoaded.exr) {
         document.getElementById('loadingScreen').style.display = 'none';
+        resetPlane(); // Reset plane's position, rotation, and velocity
     }
+}
+
+function resetPlane() {
+    physicsObject.position.set(0, 50, 0);
+    physicsObject.rotation.set(0, 0, 0);
+    velocity.set(0, 0, 0);
+    angularVelocity.set(0, 0, 0);
 }
 
 const exrLoader = new EXRLoader();
