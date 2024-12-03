@@ -55,20 +55,24 @@ let resourcesLoaded = {
 
 function checkResourcesLoaded() {
     if (resourcesLoaded.texture && resourcesLoaded.gltf && resourcesLoaded.exr) {
-        document.getElementById('loadingScreen').style.display = 'none';
-        resetPlane(); // Reset plane's position, rotation, and velocity
+        setTimeout(() => {
+            document.getElementById('loadingScreen').style.display = 'none';
+            resetPlane(); // Reset plane's position, rotation, and velocity
+        }, 1000);
     }
 }
 
 function resetPlane() {
-    physicsObject.position.set(0, 50, 0);
+    physicsObject.position.set(0, 1, 0);
     physicsObject.rotation.set(0, 0, 0);
     velocity.set(0, 0, 0);
     angularVelocity.set(0, 0, 0);
+    cube.position.copy(physicsObject.position);
+    cube.rotation.copy(physicsObject.rotation);
 }
 
 const exrLoader = new EXRLoader();
-exrLoader.load('./resources/autumn_field_puresky_4k.exr', (texture) => {
+exrLoader.load('./resources/skybox.exr', (texture) => {
     const exrCubeRenderTarget = new THREE.WebGLCubeRenderTarget(texture.image.height);
     exrCubeRenderTarget.fromEquirectangularTexture(renderer, texture);
     scene.background = exrCubeRenderTarget.texture;
