@@ -1,24 +1,29 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'; // Import OrbitControls
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
 
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true }); // Enable antialiasing
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-const controls = new OrbitControls(camera, renderer.domElement); // Add OrbitControls
-controls.enableDamping = true; // Enable damping (inertia)
-controls.dampingFactor = 0.05; // Set the damping factor (adjust as needed)
-controls.screenSpacePanning = false; // Disable panning
-controls.enableZoom = true; // Enable zooming
-controls.enableRotate = true; // Enable rotating
-controls.enablePan = false; // Disable panning
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.screenSpacePanning = false;
+controls.enableZoom = true;
+controls.enableRotate = true;
+controls.enablePan = false;
+controls.maxPolarAngle = Math.PI;
+controls.minPolarAngle = 0;
+controls.maxAzimuthAngle = Infinity;
+controls.minAzimuthAngle = -Infinity;
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
@@ -38,10 +43,36 @@ directionalLight.shadow.camera.top = 100;
 directionalLight.shadow.camera.bottom = -100;
 scene.add(directionalLight);
 
+const faintBlueLight = new THREE.DirectionalLight(0x87CEEB, 0.1);
+faintBlueLight.position.set(-5, -10, -7.5);
+scene.add(faintBlueLight);
+
+let resourcesLoaded = {
+    texture: false,
+    gltf: false,
+    exr: false
+};
+
+function checkResourcesLoaded() {
+    if (resourcesLoaded.texture && resourcesLoaded.gltf && resourcesLoaded.exr) {
+        document.getElementById('loadingScreen').style.display = 'none';
+    }
+}
+
+const exrLoader = new EXRLoader();
+exrLoader.load('./resources/autumn_field_puresky_4k.exr', (texture) => {
+    const exrCubeRenderTarget = new THREE.WebGLCubeRenderTarget(texture.image.height);
+    exrCubeRenderTarget.fromEquirectangularTexture(renderer, texture);
+    scene.background = exrCubeRenderTarget.texture;
+    resourcesLoaded.exr = true;
+    checkResourcesLoaded();
+});
+
 const textureLoader = new THREE.TextureLoader();
 const texture = textureLoader.load('./resources/forest_ground.jpg', () => {
     renderer.render(scene, camera);
-    console.log('Texture loaded');
+    resourcesLoaded.texture = true;
+    checkResourcesLoaded();
 });
 texture.wrapS = THREE.RepeatWrapping;
 texture.wrapT = THREE.RepeatWrapping;
@@ -104,12 +135,18 @@ for (let k = 0; k < rareness; k++) {
     shapeMeshes.push(shape);
 }
 
+const physicsObject = new THREE.Object3D();
+scene.add(physicsObject);
+
+physicsObject.position.set(0, 50, 0);
+physicsObject.rotation.set(0, 0, 0);
+
 const geometry = new THREE.BoxGeometry(2, 5, 10);
 const material = new THREE.MeshStandardMaterial({ color: 0x00ff00, visible: false });
 const cube = new THREE.Mesh(geometry, material);
 cube.castShadow = true;
 scene.add(cube);
-cube.position.set(0, 20, 0);
+cube.position.set(0, 10, 0);
 
 const loader = new GLTFLoader();
 loader.load('./resources/fuselage.glb', (gltf) => {
@@ -117,12 +154,16 @@ loader.load('./resources/fuselage.glb', (gltf) => {
     airplane.traverse((node) => {
         if (node.isMesh) {
             node.castShadow = true;
-            node.receiveShadow = true;
+            node.receiveShadow = false;
             node.material.side = THREE.DoubleSide;
         }
     });
     cube.add(airplane);
     airplane.position.set(0, 0, 0);
+    physicsObject.rotation.set(0, 0, 0);
+    cube.rotation.set(0, 0, 0);
+    resourcesLoaded.gltf = true;
+    checkResourcesLoaded();
 });
 
 camera.position.set(0, 5, 10);
@@ -135,7 +176,7 @@ let dragCoefficient = 0.005;
 let liftCoefficient = 0.005;
 let thrust = 20000;
 const rollSpeed = 1.5;
-const pitchSpeed = 3.0; // Increase pitch speed
+const pitchSpeed = 2;
 const yawSpeed = 1.5;
 const angularDamping = 0.99;
 const brakeResistance = 2;
@@ -161,22 +202,19 @@ const cameraOffset = new THREE.Vector3(0, 5, 10);
 
 const raycaster = new THREE.Raycaster();
 const directions = [
-    new THREE.Vector3(1, 0, 0), // Right
-    new THREE.Vector3(-1, 0, 0), // Left
-    new THREE.Vector3(0, 1, 0), // Up
-    new THREE.Vector3(0, -1, 0), // Down
-    new THREE.Vector3(0, 0, 1), // Forward
-    new THREE.Vector3(0, 0, -1) // Backward
+    new THREE.Vector3(1, 0, 0),
+    new THREE.Vector3(-1, 0, 0),
+    new THREE.Vector3(0, 1, 0),
+    new THREE.Vector3(0, -1, 0),
+    new THREE.Vector3(0, 0, 1),
+    new THREE.Vector3(0, 0, -1)
 ];
 
-const physicsObject = new THREE.Object3D();
-scene.add(physicsObject);
-
-const mass = 1000; // Mass of the airplane in kg
-const wingArea = 16; // Wing area in square meters
-const airDensity = 1.225; // Air density at sea level in kg/m^3
-const controlSurfaceEffectiveness = 50.0; // Significantly increase effectiveness of control surfaces
-const maxControlSurfaceDeflection = Math.PI / 2; // Further increase maximum deflection angle
+const mass = 1000;
+const wingArea = 16;
+const airDensity = 1.225;
+const controlSurfaceEffectiveness = 50.0;
+const maxControlSurfaceDeflection = Math.PI / 2;
 
 function calculateLift(velocity) {
     const speed = velocity.length();
@@ -192,7 +230,7 @@ function calculateControlSurfaceForces(angularVelocity, deltaTime, speed, angleO
     const controlForces = new THREE.Vector3();
     const controlMoments = new THREE.Vector3();
 
-    const effectiveness = controlSurfaceEffectiveness * (speed / 100) * Math.cos(angleOfAttack); // Scale effectiveness with speed and angle of attack
+    const effectiveness = controlSurfaceEffectiveness * (speed / 100) * Math.cos(angleOfAttack);
 
     if (pressedKeys.has('ArrowLeft')) {
         controlMoments.z += rollSpeed * effectiveness * deltaTime;
@@ -202,9 +240,13 @@ function calculateControlSurfaceForces(angularVelocity, deltaTime, speed, angleO
     }
     if (pressedKeys.has('ArrowUp')) {
         controlMoments.x -= pitchSpeed * effectiveness * deltaTime;
+        const elevatorForce = new THREE.Vector3(0, -1000, 0);
+        controlForces.add(elevatorForce.multiplyScalar(deltaTime));
     }
     if (pressedKeys.has('ArrowDown')) {
         controlMoments.x += pitchSpeed * effectiveness * deltaTime;
+        const elevatorForce = new THREE.Vector3(0, 1000, 0);
+        controlForces.add(elevatorForce.multiplyScalar(deltaTime));
     }
     if (pressedKeys.has('a')) {
         controlMoments.y += yawSpeed * effectiveness * deltaTime;
@@ -214,6 +256,46 @@ function calculateControlSurfaceForces(angularVelocity, deltaTime, speed, angleO
     }
 
     return { controlForces, controlMoments };
+}
+
+const wheelPositions = [
+    new THREE.Vector3(0, -1, -5),
+    new THREE.Vector3(-2, -1, 5),
+    new THREE.Vector3(2, -1, 5)
+];
+
+function applyWheelForces(deltaTime) {
+    const wheelForces = new THREE.Vector3();
+    const wheelMoments = new THREE.Vector3();
+
+    for (const wheelPosition of wheelPositions) {
+        const worldWheelPosition = wheelPosition.clone().applyMatrix4(cube.matrixWorld);
+        if (worldWheelPosition.y <= 1.1) {
+            const penetrationDepth = 1.1 - worldWheelPosition.y;
+            const springForce = penetrationDepth * 1000;
+            const dampingForce = -velocity.y * 50;
+            const totalForce = springForce + dampingForce;
+
+            const forceVector = new THREE.Vector3(0, totalForce, 0);
+            wheelForces.add(forceVector);
+
+            const leverArm = worldWheelPosition.clone().sub(cube.position);
+            const torque = new THREE.Vector3().crossVectors(leverArm, forceVector);
+            wheelMoments.add(torque);
+
+            const frictionCoefficient = 0.001;
+            const normalForce = totalForce;
+            const frictionForce = velocity.clone().multiplyScalar(-frictionCoefficient * normalForce);
+            wheelForces.add(frictionForce);
+
+            if (Math.abs(angularVelocity.z) > 0.1) {
+                const rollCorrectionTorque = -angularVelocity.z * 50;
+                wheelMoments.z += rollCorrectionTorque;
+            }
+        }
+    }
+
+    return { wheelForces, wheelMoments };
 }
 
 function updateMovement(deltaTime) {
@@ -244,13 +326,15 @@ function updateMovement(deltaTime) {
     const totalForce = new THREE.Vector3();
     totalForce.add(liftForce);
     totalForce.add(dragForce);
-    totalForce.add(forward.multiplyScalar(thrust * throttle));
+
+    const maxSpeed = 300;
+    const speed = velocity.length();
+    const effectiveThrust = thrust * throttle * Math.max(0, 1 - (speed / maxSpeed));
+    totalForce.add(forward.multiplyScalar(effectiveThrust));
 
     const acceleration = totalForce.divideScalar(mass);
     velocity.add(acceleration.multiplyScalar(deltaTime));
 
-    const speed = velocity.length();
-    // Calculate control surface forces and moments
     let angleOfAttack = forward.angleTo(velocity.clone().normalize());
     if (physicsObject.position.y <= 5 && pressedKeys.has('ArrowDown')) {
         angleOfAttack += 0.2;
@@ -260,13 +344,12 @@ function updateMovement(deltaTime) {
 
     const { controlForces, controlMoments } = calculateControlSurfaceForces(angularVelocity, deltaTime, speed, angleOfAttack);
 
-    // Apply control surface moments to angular velocity
     angularVelocity.add(controlMoments.multiplyScalar(deltaTime));
+    velocity.add(controlForces.multiplyScalar(deltaTime));
 
-    // Prevent excessive rolling when on the ground, but limit pitching
     if (physicsObject.position.y <= 1.1) {
-        angularVelocity.z = 0; // Prevent roll
-        angularVelocity.x = THREE.MathUtils.clamp(angularVelocity.x, -0.1, 0.1); // Limit pitch
+        angularVelocity.x = THREE.MathUtils.clamp(angularVelocity.x, -0.1, 0.1);
+        angularVelocity.y = THREE.MathUtils.clamp(angularVelocity.y, -0.1, 0.1);
     }
 
     if (pressedKeys.has('f') && physicsObject.position.y <= 1.1) {
@@ -288,11 +371,20 @@ function updateMovement(deltaTime) {
 
     const liftMagnitude = Math.sin(angleOfAttack) * liftCoefficient * velocity.lengthSq();
     const liftDirection = new THREE.Vector3(0, 1, 0);
-    const liftForceMagnitude = liftDirection.multiplyScalar(liftMagnitude); // Rename to avoid re-declaration
+    const liftForceMagnitude = liftDirection.multiplyScalar(liftMagnitude);
     velocity.add(liftForceMagnitude.multiplyScalar(deltaTime));
 
     const drag = velocity.clone().multiplyScalar(-dragCoefficient * velocity.length());
     velocity.add(drag.multiplyScalar(deltaTime));
+
+    const { wheelForces, wheelMoments } = applyWheelForces(deltaTime);
+
+    velocity.add(wheelForces.multiplyScalar(deltaTime).divideScalar(mass));
+    angularVelocity.add(wheelMoments.multiplyScalar(deltaTime).divideScalar(mass));
+
+    const liftApplicationPoint = new THREE.Vector3(0, 0, 0);
+    const liftTorque = new THREE.Vector3().crossVectors(liftApplicationPoint, liftForceMagnitude);
+    angularVelocity.add(liftTorque.multiplyScalar(deltaTime).divideScalar(mass));
 
     physicsObject.position.add(velocity.clone().multiplyScalar(deltaTime));
 
@@ -326,7 +418,6 @@ function updateMovement(deltaTime) {
     cube.position.copy(physicsObject.position);
     cube.rotation.copy(physicsObject.rotation);
 
-    // Directly set the camera's position and rotation to follow the plane
     const cameraPosition = cube.position.clone().add(cameraOffset.clone().applyQuaternion(cube.quaternion));
     camera.position.copy(cameraPosition);
     camera.quaternion.copy(cube.quaternion);
@@ -350,9 +441,8 @@ function animate() {
 
     updateMovement(deltaTime);
 
-    // Update the target of the orbit controls to the position of the cube
     controls.target.copy(cube.position);
-    controls.update(); // Update controls with damping
+    controls.update();
 
     renderer.render(scene, camera);
 }
